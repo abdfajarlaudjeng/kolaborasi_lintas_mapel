@@ -3,13 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>LKPD Pancasila Kelas 7</title>
+<title>LKPD Pancasila Multi-Kelas</title>
 <style>
 body { font-family: Arial, sans-serif; margin: 20px; background-color: #f0f4f8; }
 h1 { text-align: center; color: #2c3e50; }
 form { max-width: 800px; margin: auto; background-color: #fff; padding: 20px; border-radius: 10px; box-shadow:0 2px 5px rgba(0,0,0,0.2);}
 label { display: block; margin-top: 15px; font-weight: bold; }
-input, textarea { width: 100%; padding: 10px; margin-top:5px; border-radius: 5px; border:1px solid #ccc; resize: vertical; }
+input, textarea, select { width: 100%; padding: 10px; margin-top:5px; border-radius: 5px; border:1px solid #ccc; resize: vertical; }
 button { margin-top: 20px; padding: 10px 20px; background-color: #2980b9; color: white; border: none; border-radius: 5px; cursor: pointer; }
 button:hover { background-color: #1c5980; }
 .success { color: green; margin-top: 15px; font-weight: bold; }
@@ -17,14 +17,20 @@ button:hover { background-color: #1c5980; }
 </head>
 <body>
 
-<h1>LKPD Pancasila Kelas 7</h1>
+<h1>LKPD Pancasila</h1>
+<p style="text-align:center;">Pilih kelas Anda, isi jawaban, dan kirim jawaban ke spreadsheet.</p>
 
 <form id="lkpdForm">
     <label for="namaSiswa">Nama Siswa:</label>
     <input type="text" id="namaSiswa" name="namaSiswa" required>
 
     <label for="kelas">Kelas:</label>
-    <input type="text" id="kelas" name="kelas" required>
+    <select id="kelas" name="kelas" required>
+        <option value="">-- Pilih Kelas --</option>
+        <option value="7">Kelas 7</option>
+        <option value="8">Kelas 8</option>
+        <option value="9">Kelas 9</option>
+    </select>
 
     <label for="q1">1. Sebutkan 5 sila Pancasila!</label>
     <textarea id="q1" name="q1" required></textarea>
@@ -52,9 +58,15 @@ const successMsg = document.getElementById("successMsg");
 form.addEventListener("submit", e => {
     e.preventDefault();
 
+    const kelas = document.getElementById("kelas").value;
+    if (!kelas) {
+        alert("Silakan pilih kelas Anda!");
+        return;
+    }
+
     const formData = {
         namaSiswa: document.getElementById("namaSiswa").value,
-        kelas: document.getElementById("kelas").value,
+        kelas: kelas,
         q1: document.getElementById("q1").value,
         q2: document.getElementById("q2").value,
         q3: document.getElementById("q3").value,
@@ -62,7 +74,7 @@ form.addEventListener("submit", e => {
         q5: document.getElementById("q5").value
     };
 
-    fetch("https://script.google.com/macros/s/AKfycbwkgqDrp4Xas-PlP4GYKkhQlY1me-N4K5WM3PuUaizUbsOTMjcdfAS2oGVMdSe-doaD/exec", { // Ganti dengan URL Web Apps GAS
+    fetch("https://script.google.com/macros/s/AKfycbw3LE4mmvxh4VZBf_aG0Ld6uLhWAV7IirEG7GGxrdsQn9l2RX3_QbGSOcHSvZcw1_aU/exec", { // Ganti dengan URL Web Apps GAS
         method: "POST",
         body: JSON.stringify(formData)
     })
