@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard Monitoring TPG Profesional</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<!-- Library XLSX -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<!-- Library jsPDF dan autoTable -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+</head>
+<body class="bg-gray-100">
+
+<!-- ===== LOGIN ===== -->
+<div id="loginSection" class="flex justify-center items-center h-screen">
+  <div class="bg-white p-8 rounded-lg shadow-lg w-full max-w-md">
+    <h2 class="text-2xl font-bold mb-6 text-center">Login TPG Monitoring</h2>
+    <input type="email" id="email" placeholder="Email" class="w-full p-3 border rounded mb-4">
+    <input type="password" id="password" placeholder="Password" class="w-full p-3 border rounded mb-6">
+    <button onclick="doLogin()" class="w-full bg-blue-600 text-white p-3 rounded hover:bg-blue-700 transition">Login</button>
+  </div>
+</div>
+
+<!-- ===== DASHBOARD ===== -->
+<div id="dashboard" class="p-6" style="display:none;">
+  <div class="flex justify-between items-center mb-6">
+    <h3 class="text-xl font-semibold">Halo, <span id="userName"></span> (<span id="userRole"></span>)</h3>
+    <button onclick="logout()" class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 transition">Logout</button>
+  </div>
+
+  <!-- Upload Guru -->
+  <div id="uploadSection" class="mb-6 p-4 bg-white rounded shadow" style="display:none;">
+    <h4 class="font-semibold mb-3">Upload Dokumen (Multi-file)</h4>
+    <input type="file" id="file" multiple class="mb-3">
+    <button onclick="upload()" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition">Upload</button>
+  </div>
+
+  <!-- Monitoring Table -->
+  <div class="p-4 bg-white rounded shadow">
+    <div class="flex justify-between mb-3">
+      <input type="text" id="search" placeholder="Cari nama atau sekolah" onkeyup="filterTable()"
+             class="p-2 border rounded w-1/2">
+      <div>
+        <button onclick="exportExcel()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition mr-2">Export Excel</button>
+        <button onclick="exportPDF()" class="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 transition">Export PDF Berwarna</button>
+      </div>
+    </div>
+    <div class="overflow-x-auto">
+      <table id="dataTable" class="min-w-full border-collapse">
+        <thead class="bg-gray-200">
+          <tr id="tableHeader"></tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyUnqLhDOLw9codXCAetaM5pCrIDf9J28KxA6eY_MEaFDb190K8IhYhFyLegLlvvmczCQ/exec"; // Ganti Web App URL
+let userRole="", userNama="", userSekolah="", allData=[];
+
+function doLogin(){
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
+  fetch(`${SCRIPT_URL}?action=login&email=${email}&password=${password}`)
+    .then(res=>res.json())
+    .then(res=>{
+      if(res.status){
+        userRole = res.role; userNama = res.nama; userSekolah = res.sekolah;
+        document.getElementById("loginSection").style.display="none";
+        document.getElementById("dashboard").style.display="block";
+        document.getElementById("userName").innerText = userNama;
+        document.getElementById("userRole").innerText = userRole;
+        if(userRole==="GURU") document.getElementById("uploadSection").style.display="block";
+        loadData();
+      } else { alert(res.msg); }
+    });
+}
+
+function logout(){
+  userRole=""; userNama=""; userSekolah="";
+  document.getElementById("dashboard").style.display="none";
+  document.getElementById("loginSection").style.display="flex";
+}
+
+function loadData(){
+  fetch(`${SCRIPT_URL}?action=getData&role=${userRole}&sekolah=${userSekolah||''}`)
+    .then(res=>res.json())
+    .then(data=>{
+      allData = data;
+      renderTable();
+    });
+}
+
+function renderTable(){
+  const headerRow = document.getElementById("tableHeader");
+  const tbody = document.getElementById("tableBody");
+  headerRow.innerHTML=""; tbody.innerHTML="";
+
+  let headers = [];
+  if(userRole==="GURU" || userRole==="DINAS"){
+    headers = ["Nama","Sekolah","Status Upload","Link Dokumen"];
+  } else if(userRole==="SEKOLAH"){
+    headers = ["Nama Guru","Status Upload","Link Dokumen"];
+  } else if(userRole==="PENGAWAS"){
+    headers = ["Nama Sekolah","Guru Belum Upload"];
+  }
+  headers.forEach(h=>{
+    let th = document.createElement("th");
+    th.innerText = h;
+    th.className = "border px-4 py-2";
+    headerRow.appendChild(th);
+  });
+
+  allData.forEach(r=>{
+    let tr = document.createElement("tr");
+    let statusClass = (r.status==="Sudah") ? "bg-green-100" : (r.status==="Belum") ? "bg-red-100" : "";
+    if(userRole==="GURU" || userRole==="DINAS"){
+      tr.innerHTML=`<td class="border px-4 py-2">${r.nama||""}</td>
+                     <td class="border px-4 py-2">${r.sekolah||""}</td>
+                     <td class="border px-4 py-2 ${statusClass}">${r.status||""}</td>
+                     <td class="border px-4 py-2">${r.link ? `<a class="text-blue-600 underline" href="${r.link}" target="_blank">File</a>`:""}</td>`;
+    } else if(userRole==="SEKOLAH"){
+      tr.innerHTML=`<td class="border px-4 py-2">${r.nama}</td>
+                     <td class="border px-4 py-2 ${statusClass}">${r.status}</td>
+                     <td class="border px-4 py-2">${r.link ? `<a class="text-blue-600 underline" href="${r.link}" target="_blank">File</a>`:""}</td>`;
+    } else if(userRole==="PENGAWAS"){
+      tr.innerHTML=`<td class="border px-4 py-2">${r.nama}</td>
+                     <td class="border px-4 py-2 bg-red-100">${r.guruBelum}</td>`;
+    }
+    tbody.appendChild(tr);
+  });
+}
+
+function filterTable(){
+  const term = document.getElementById("search").value.toLowerCase();
+  const tbody = document.getElementById("tableBody");
+  Array.from(tbody.getElementsByTagName("tr")).forEach(tr=>{
+    tr.style.display = Array.from(tr.getElementsByTagName("td"))
+                            .some(td=>td.innerText.toLowerCase().includes(term)) ? "" : "none";
+  });
+}
+
+function upload(){
+  const fileInput = document.getElementById("file");
+  if(!fileInput.files.length){ alert("Pilih file"); return; }
+  const files = Array.from(fileInput.files);
+
+  files.forEach(f=>{
+    const formData = new FormData();
+    formData.append("file", f);
+    formData.append("email", userNama);
+    formData.append("namaGuru", userNama);
+    formData.append("namaFile", f.name);
+
+    fetch(SCRIPT_URL, {method:"POST", body:formData})
+      .then(res=>res.json())
+      .then(res=>{
+        if(res.status){
+          console.log("Upload berhasil:", res.url);
+        } else { console.error(res.msg); }
+      });
+  });
+  alert("Upload selesai!");
+  setTimeout(loadData, 1000);
+}
+
+// ===== Export Excel =====
+function exportExcel(){
+  const wb = XLSX.utils.book_new();
+  const ws_data = [];
+  const headers = Array.from(document.querySelectorAll("#tableHeader th")).map(th=>th.innerText);
+  ws_data.push(headers);
+  Array.from(document.querySelectorAll("#tableBody tr")).forEach(tr=>{
+    const row = Array.from(tr.getElementsByTagName("td")).map(td=>td.innerText);
+    ws_data.push(row);
+  });
+  const ws = XLSX.utils.aoa_to_sheet(ws_data);
+  XLSX.utils.book_append_sheet(wb, ws, "Monitoring TPG");
+  XLSX.writeFile(wb, "Monitoring_TPG.xlsx");
+}
+
+// ===== Export PDF Berwarna =====
+function exportPDF(){
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  const headers = Array.from(document.querySelectorAll("#tableHeader th")).map(th=>th.innerText);
+  const data = Array.from(document.querySelectorAll("#tableBody tr")).map(tr=>{
+    return Array.from(tr.getElementsByTagName("td")).map(td=>({
+      content: td.innerText,
+      status: td.className.includes("bg-green-100")?"sudah":
+              td.className.includes("bg-red-100")?"belum":""
+    }));
+  });
+
+  const body = data.map(row=>row.map(cell=>{
+    let fillColor = cell.status==="sudah" ? [200,230,201] : cell.status==="belum" ? [255,205,210] : null;
+    return { content: cell.content, fillColor: fillColor };
+  }));
+
+  doc.autoTable({ head:[headers], body:body, startY:10 });
+  doc.save("Monitoring_TPG_Warna.pdf");
+}
+</script>
+</body>
+</html>
