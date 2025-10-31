@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LKPD Pancasila Kelas 7</title>
+<style>
+body { font-family: Arial, sans-serif; margin: 20px; background-color: #f0f4f8; }
+h1 { text-align: center; color: #2c3e50; }
+form { max-width: 800px; margin: auto; background-color: #fff; padding: 20px; border-radius: 10px; box-shadow:0 2px 5px rgba(0,0,0,0.2);}
+label { display: block; margin-top: 15px; font-weight: bold; }
+input, textarea { width: 100%; padding: 10px; margin-top:5px; border-radius: 5px; border:1px solid #ccc; resize: vertical; }
+button { margin-top: 20px; padding: 10px 20px; background-color: #2980b9; color: white; border: none; border-radius: 5px; cursor: pointer; }
+button:hover { background-color: #1c5980; }
+.success { color: green; margin-top: 15px; font-weight: bold; }
+</style>
+</head>
+<body>
+
+<h1>LKPD Pancasila Kelas 7</h1>
+
+<form id="lkpdForm">
+    <label for="namaSiswa">Nama Siswa:</label>
+    <input type="text" id="namaSiswa" name="namaSiswa" required>
+
+    <label for="kelas">Kelas:</label>
+    <input type="text" id="kelas" name="kelas" required>
+
+    <label for="q1">1. Sebutkan 5 sila Pancasila!</label>
+    <textarea id="q1" name="q1" required></textarea>
+
+    <label for="q2">2. Berikan contoh penerapan sila Ketuhanan Yang Maha Esa di sekolah!</label>
+    <textarea id="q2" name="q2" required></textarea>
+
+    <label for="q3">3. Berikan contoh penerapan sila Kemanusiaan yang Adil dan Beradab di rumah!</label>
+    <textarea id="q3" name="q3" required></textarea>
+
+    <label for="q4">4. Apa arti sila Persatuan Indonesia bagi kehidupan sehari-hari?</label>
+    <textarea id="q4" name="q4" required></textarea>
+
+    <label for="q5">5. Bagaimana penerapan sila Keadilan Sosial di lingkungan masyarakat?</label>
+    <textarea id="q5" name="q5" required></textarea>
+
+    <button type="submit">Kirim Jawaban</button>
+    <div class="success" id="successMsg"></div>
+</form>
+
+<script>
+const form = document.getElementById("lkpdForm");
+const successMsg = document.getElementById("successMsg");
+
+form.addEventListener("submit", e => {
+    e.preventDefault();
+
+    const formData = {
+        namaSiswa: document.getElementById("namaSiswa").value,
+        kelas: document.getElementById("kelas").value,
+        q1: document.getElementById("q1").value,
+        q2: document.getElementById("q2").value,
+        q3: document.getElementById("q3").value,
+        q4: document.getElementById("q4").value,
+        q5: document.getElementById("q5").value
+    };
+
+    fetch("https://script.google.com/macros/s/AKfycbwkgqDrp4Xas-PlP4GYKkhQlY1me-N4K5WM3PuUaizUbsOTMjcdfAS2oGVMdSe-doaD/exec", { // Ganti dengan URL Web Apps GAS
+        method: "POST",
+        body: JSON.stringify(formData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if(data.status === 'success') {
+            successMsg.innerText = "Jawaban berhasil dikirim!";
+            form.reset();
+        } else {
+            successMsg.innerText = "Terjadi kesalahan, coba lagi.";
+        }
+    })
+    .catch(error => {
+        successMsg.innerText = "Terjadi kesalahan, coba lagi.";
+        console.error(error);
+    });
+});
+</script>
+
+</body>
+</html>
