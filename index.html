@@ -3,25 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ceritaku (Versi Canggih)</title>
+    <title>Perpustakaan Ceritaku</title>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Merriweather:wght@700&family=Lato:wght@400;700&display=swap" rel="stylesheet">
+    
     <style>
+        /* Gaya Body dan Konten (Sama) */
         body {
             font-family: 'Lato', Arial, sans-serif; line-height: 1.7;
             background-color: #f0f2f5; color: #333;
             margin: 0; padding: 20px;
         }
         .container {
-            max-width: 800px; margin: 40px auto;
+            max-width: 800px; margin: 20px auto;
             padding: 30px 40px; background-color: #ffffff;
             border-radius: 12px;
             box-shadow: 0 10px 25px rgba(0,0,0,0.08);
-            transition: all 0.3s ease;
         }
-        .container:hover { box-shadow: 0 12px 30px rgba(0,0,0,0.12); }
         h1 {
             font-family: 'Merriweather', 'Times New Roman', serif;
             color: #d9534f; text-align: center;
@@ -38,11 +38,56 @@
         .loading {
             text-align: center; font-style: italic; color: #999;
         }
+
+        /* === GAYA BARU UNTUK MENU === */
+        #menu-container {
+            max-width: 800px;
+            margin: 40px auto 10px auto;
+            padding: 20px 40px;
+            background-color: #fff;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+        }
+        #menu-container h2 {
+            font-family: 'Merriweather', serif;
+            color: #333;
+            margin-top: 0;
+            border-bottom: 2px solid #f0f2f5;
+            padding-bottom: 10px;
+        }
+        #menu-cerita {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        #menu-cerita li {
+            font-size: 1.1em;
+            padding: 12px 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+        #menu-cerita li:hover {
+            background-color: #f9f9f9;
+            font-weight: bold;
+        }
+        #menu-cerita li.active {
+            background-color: #d9534f;
+            color: white;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
 
-    <div class="container">
+    <div id="menu-container">
+        <h2>Pilih Cerita</h2>
+        <ul id="menu-cerita" class="loading">
+            <li>Memuat daftar cerita...</li>
+        </ul>
+    </div>
+
+    <div class="container" id="display-container">
         <h1 id="cerita-judul" class="loading">Memuat Cerita...</h1>
         <img id="cerita-gambar" src="https://via.placeholder.com/600x300.png?text=Memuat+Gambar..." alt="Ilustrasi cerita">
         <div id="cerita-isi">
@@ -51,114 +96,137 @@
     </div>
 
     <script>
-        /**
-         * Fungsi Parser CSV yang lebih cerdas.
-         * Mengatasi koma di dalam tanda kutip dan baris baru.
-         * @param {string} csvText Teks mentah dari file .csv
-         * @returns {string[][]} Sebuah array 2D (array berisi baris, yg berisi kolom)
-         */
+        // Fungsi parseCSV (Sama seperti sebelumnya, tidak diubah)
         function parseCSV(csvText) {
-            const rows = [];
-            let insideQuote = false;
-            let currentField = '';
-            let currentRow = [];
-
+            const rows = []; let insideQuote = false;
+            let currentField = ''; let currentRow = [];
             for (let i = 0; i < csvText.length; i++) {
                 const char = csvText[i];
-                
                 if (insideQuote) {
                     if (char === '"') {
-                        // Cek apakah ini "escaped quote" (yaitu "")
                         if (i + 1 < csvText.length && csvText[i + 1] === '"') {
-                            currentField += '"';
-                            i++; // Lewati tanda kutip kedua
-                        } else {
-                            insideQuote = false; // Keluar dari quote
-                        }
-                    } else {
-                        currentField += char;
-                    }
+                            currentField += '"'; i++;
+                        } else { insideQuote = false; }
+                    } else { currentField += char; }
                 } else {
-                    if (char === '"') {
-                        insideQuote = true;
+                    if (char === '"') { insideQuote = true;
                     } else if (char === ',') {
-                        currentRow.push(currentField);
-                        currentField = '';
+                        currentRow.push(currentField); currentField = '';
                     } else if (char === '\n') {
-                        // Akhir baris
-                        currentRow.push(currentField);
-                        rows.push(currentRow);
-                        currentRow = [];
-                        currentField = '';
-                    } else if (char === '\r') {
-                        // Abaikan karakter carriage return
-                    } else {
-                        currentField += char;
-                    }
+                        currentRow.push(currentField); rows.push(currentRow);
+                        currentRow = []; currentField = '';
+                    } else if (char === '\r') { /* Abaikan */
+                    } else { currentField += char; }
                 }
             }
-            // Tambahkan sisa field dan baris terakhir
             if (currentField) currentRow.push(currentField);
             if (currentRow.length > 0) rows.push(currentRow);
-
             return rows;
         }
 
-        // --- Mulai Logika Utama ---
+        // === LOGIKA JAVASCRIPT BARU ===
+
+        // Variabel global untuk menyimpan semua data cerita
+        let databaseCerita = [];
         
-        document.addEventListener("DOMContentLoaded", function() {
+        // Ambil elemen HTML
+        const elemenJudul = document.getElementById('cerita-judul');
+        const elemenGambar = document.getElementById('cerita-gambar');
+        const elemenIsi = document.getElementById('cerita-isi');
+        const elemenMenu = document.getElementById('menu-cerita');
+
+        // URL Sheet Anda
+        const urlSheet = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSiXU9JuWpXD2nPgaaJrT1gZ4VUYtRspK02vjSdkVwo-K-OD_OHkb3i23fOG98mz0AwhlIWfKOpJnTz/pub?gid=0&single=true&output=csv';
+
+        // 1. Fungsi untuk menampilkan cerita berdasarkan ID
+        function tampilkanCerita(id) {
+            // Cari cerita di database kita
+            const cerita = databaseCerita.find(c => c.id === id);
+            if (!cerita) return; // Jika tidak ketemu, hentikan
+
+            // Update konten di halaman
+            elemenJudul.textContent = cerita.judul;
+            elemenJudul.classList.remove('loading');
             
-            const urlSheet = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSiXU9JuWpXD2nPgaaJrT1gZ4VUYtRspK02vjSdkVwo-K-OD_OHkb3i23fOG98mz0AwhlIWfKOpJnTz/pub?gid=0&single=true&output=csv';
+            elemenGambar.src = cerita.url_gambar;
+            elemenGambar.alt = "Ilustrasi " + cerita.judul;
+            
+            const paragraf = cerita.naskah
+                                  .split('\n') // Pisahkan berdasarkan baris baru asli
+                                  .map(p => `<p>${p.trim()}</p>`)
+                                  .join(''); 
+            elemenIsi.innerHTML = paragraf;
 
-            const elemenJudul = document.getElementById('cerita-judul');
-            const elemenGambar = document.getElementById('cerita-gambar');
-            const elemenIsi = document.getElementById('cerita-isi');
+            // Update menu (memberi tanda 'active')
+            document.querySelectorAll('#menu-cerita li').forEach(li => {
+                if (li.dataset.id === id) {
+                    li.classList.add('active');
+                } else {
+                    li.classList.remove('active');
+                }
+            });
+        }
 
+        // 2. Fungsi untuk membuat menu
+        function buatMenu() {
+            elemenMenu.innerHTML = ''; // Kosongkan tulisan "Memuat..."
+            elemenMenu.classList.remove('loading');
+
+            databaseCerita.forEach(cerita => {
+                const li = document.createElement('li');
+                li.textContent = cerita.judul;
+                li.dataset.id = cerita.id; // Simpan ID di elemen li
+                
+                // Tambahkan event listener saat di-klik
+                li.addEventListener('click', () => {
+                    tampilkanCerita(cerita.id);
+                });
+                
+                elemenMenu.appendChild(li);
+            });
+        }
+
+        // 3. Logika utama saat halaman dimuat
+        document.addEventListener("DOMContentLoaded", function() {
             fetch(urlSheet)
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Gagal mengambil data dari Jaringan');
-                    }
-                    return response.text();
-                })
+                .then(response => response.text())
                 .then(csvText => {
-                    // Gunakan parser canggih kita!
                     const data = parseCSV(csvText);
+                    const headers = data[0]; // baris [0] adalah header
                     
-                    // data[0] adalah header: ['id', 'judul', 'url_gambar', 'naskah_cerita']
-                    // data[1] adalah baris data pertama
-                    const cerita = data[1]; 
-                    
-                    if (!cerita || cerita.length < 4) {
-                         throw new Error('Format data CSV tidak terduga.');
+                    // Reset database
+                    databaseCerita = [];
+
+                    // Loop mulai dari baris 1 (data)
+                    for (let i = 1; i < data.length; i++) {
+                        const baris = data[i];
+                        // Pastikan baris punya data
+                        if (baris.length === headers.length) {
+                            databaseCerita.push({
+                                id: baris[0],
+                                judul: baris[1],
+                                url_gambar: baris[2],
+                                naskah: baris[3]
+                            });
+                        }
                     }
 
-                    // Ambil data berdasarkan indeks kolom
-                    const judul = cerita[1];     // Indeks 1 = 'judul'
-                    const urlGambar = cerita[2]; // Indeks 2 = 'url_gambar'
-                    const naskah = cerita[3];    // Indeks 3 = 'naskah_cerita'
-
-                    // Masukkan data ke dalam HTML
-                    elemenJudul.textContent = judul;
-                    elemenJudul.classList.remove('loading'); 
+                    // Setelah semua data dimuat...
+                    buatMenu(); // 1. Buat menunya
                     
-                    elemenGambar.src = urlGambar;
-                    elemenGambar.alt = "Ilustrasi " + judul;
-                    
-                    // === INI BAGIAN YANG DIPERBAIKI ===
-                    // Naskah sekarang sudah memiliki baris baru ('\n') asli dari Sheet.
-                    // Kita tinggal memecahnya berdasarkan '\n' dan mengubahnya menjadi tag <p>
-                    const paragraf = naskah.split('\n')
-                                          .map(p => `<p>${p.trim()}</p>`)
-                                          .join(''); 
-
-                    elemenIsi.innerHTML = paragraf;
+                    // 2. Tampilkan cerita pertama secara default
+                    if (databaseCerita.length > 0) {
+                        tampilkanCerita(databaseCerita[0].id);
+                    } else {
+                        elemenJudul.textContent = "Data Kosong";
+                        elemenIsi.innerHTML = "<p>Tidak ada cerita yang ditemukan di spreadsheet.</p>";
+                    }
 
                 })
                 .catch(error => {
                     console.error('Error mengambil data:', error);
                     elemenJudul.textContent = "Gagal Memuat Cerita";
-                    elemenIsi.innerHTML = `<p>Tidak dapat terhubung atau memproses data dari spreadsheet. Pastikan format CSV benar dan URL dapat diakses. (Error: ${error.message})</p>`;
+                    elemenIsi.innerHTML = "<p>Tidak dapat terhubung ke database spreadsheet.</p>";
                 });
         });
     </script>
