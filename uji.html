@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Monitoring Lintas Mapel</title>
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-4">
+
+<div id="loginPage" class="max-w-md mx-auto mt-20">
+  <h2 class="text-2xl font-bold mb-4">Login</h2>
+  <input id="email" type="email" placeholder="Email" class="border p-2 w-full mb-2" />
+  <input id="password" type="password" placeholder="Password" class="border p-2 w-full mb-4" />
+  <button onclick="login()" class="bg-blue-600 text-white p-2 w-full rounded">Masuk</button>
+  <p id="loginError" class="text-red-500 mt-2 hidden">Login gagal</p>
+</div>
+
+<div id="dashboardPage" class="hidden">
+  <h2 class="text-xl font-bold mb-4">Dashboard</h2>
+  <button onclick="logout()" class="bg-red-500 text-white px-3 py-1 rounded mb-4">Logout</button>
+
+  <div id="guruForm" class="bg-gray-50 p-4 mb-4 rounded shadow hidden">
+    <h3 class="font-bold mb-2">Tambah Laporan</h3>
+    <form id="formLaporan" onsubmit="submitReport(event)">
+      <input type="text" id="inputMapel" placeholder="Mapel" class="border p-2 w-full mb-2" required />
+      <input type="text" id="inputKelas" placeholder="Kelas" class="border p-2 w-full mb-2" required />
+      <textarea id="inputKegiatan" placeholder="Kegiatan" class="border p-2 w-full mb-2" required></textarea>
+      <textarea id="inputHasil" placeholder="Hasil" class="border p-2 w-full mb-2" required></textarea>
+      <textarea id="inputTindak" placeholder="Tindak Lanjut" class="border p-2 w-full mb-2"></textarea>
+      <input type="file" id="inputFoto" accept="image/*" class="mb-2" />
+      <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded">Simpan</button>
+    </form>
+  </div>
+
+  <table class="w-full border bg-white rounded shadow">
+    <thead class="bg-gray-200">
+      <tr>
+        <th class="border p-2">Tanggal</th>
+        <th class="border p-2">Nama Guru</th>
+        <th class="border p-2">Mapel</th>
+        <th class="border p-2">Kelas</th>
+        <th class="border p-2">Kegiatan</th>
+        <th class="border p-2">Hasil</th>
+        <th class="border p-2">Tindak Lanjut</th>
+        <th class="border p-2">Link Bukti</th>
+      </tr>
+    </thead>
+    <tbody id="reportTable"></tbody>
+  </table>
+</div>
+
+<script>
+const API_URL = 'https://script.google.com/macros/s/AKfycbxzrIw1JEiJQ_7K4r6cZLBNcR2Ke-Edrf6_pU5TNw1etsLFanaqM7YbuhZ57UkxWY6E3g/exec';
+let role = '';
+let email = '';
+
+function login(){
+  email = document.getElementById('email').value;
+  const password = document.getElementById('password').value;
+
+  fetch(API_URL, {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({action:'login', email, password})
+  }).then(res=>res.json()).then(res=>{
+    if(res.success){
+      role = res.role;
+      document.getElementById('loginPage').style.display='none';
+      document.getElementById('dashboardPage').style.display='block';
+      if(role==='guru') document.getElementById('guruForm').style.display='block';
+      loadReports();
+    }else{
+      document.getElementById('loginError').classList.remove('hidden');
+    }
+  });
+}
+
+function logout(){ location.reload(); }
+
+function loadReports(){
+  fetch(API_URL,{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({action:'getReports', role, email})
+  }).then(res=>res.json()).then(data=>{
+    const tbody=document.getElementById('reportTable');
+    tbody.innerHTML='';
+    data.forEach(r=>{
+      const row = `<tr>
+        <td class="border p-2">${r.Tanggal}</td>
+        <td class="border p-2">${r['Nama Guru']}</td>
+        <td class="border p-2">${r.Mapel}</td>
+        <td class="border p-2">${r.Kelas}</td>
+        <td class="border p-2">${r.Kegiatan}</td>
+        <td class="border p-2">${r.Hasil}</td>
+        <td class="border p-2">${r['Tindak Lanjut']}</td>
+        <td class="border p-2">${r['Link Bukti']?`<a href="${r['Link Bukti']}" target="_blank">Lihat</a>`:''}</td>
+      </tr>`;
+      tbody.innerHTML+=row;
+    });
+  });
+}
+
+function submitReport(e){
+  e.preventDefault();
+  const reportData={
+    tanggal: new Date().toISOString().split('T')[0],
+    namaGuru: email.split('@')[0],
+    mapel: document.getElementById('inputMapel').value,
+    kelas: document.getElementById('inputKelas').value,
+    kegiatan: document.getElementById('inputKegiatan').value,
+    hasil: document.getElementById('inputHasil').value,
+    tindakLanjut: document.getElementById('inputTindak').value
+  };
+  const foto=document.getElementById('inputFoto').files[0];
+  if(foto){
+    const reader = new FileReader();
+    reader.onload=function(evt){
+      const bytes=btoa(String.fromCharCode(...new Uint8Array(evt.target.result)));
+      fetch(API_URL,{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({action:'addReport', reportData, file:{bytes, mimeType:foto.type}})
+      }).then(res=>res.json()).then(res=>{
+        alert('Laporan tersimpan!');
+        loadReports();
+        document.getElementById('formLaporan').reset();
+      });
+    };
+    reader.readAsArrayBuffer(foto);
+  }else{
+    fetch(API_URL,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({action:'addReport', reportData, file:null})
+    }).then(res=>res.json()).then(res=>{
+      alert('Laporan tersimpan!');
+      loadReports();
+      document.getElementById('formLaporan').reset();
+    });
+  }
+}
+</script>
+</body>
+</html>
